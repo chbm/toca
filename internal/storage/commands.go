@@ -1,18 +1,22 @@
-package commands 
+package storage 
 
 type Ops int8
-type Value string
+type Value struct {
+	V string
+	Exists bool
+}
+
 
 const (
 	Get Ops = iota
-	Put Ops
-	Delete Ops
+	Put Ops = iota
+	Delete Ops = iota
 )
 
 type Command struct {
-	op Ops
-	key string
-	value string
-	r chan
+	Op Ops
+	Key string
+	Value string
+	R chan Value
 }
 

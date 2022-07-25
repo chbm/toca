@@ -1,12 +1,12 @@
 package main
 
 import (
-	"github.com/chbm/toca/internal/server/http"
-	"github.com/chbm/toca/internal/storage/clerk"
+	"github.com/chbm/toca/internal/server"
+	"github.com/chbm/toca/internal/storage"
 )
 
 func main() {
-	clerckCh := clerk.Start()
-	httpServer := httpserver.Start(clerkCh)
+	clerkCh := storage.Start()
+	httpserver.Start(clerkCh)
 }
 	

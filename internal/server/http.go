@@ -2,27 +2,26 @@ package httpserver
 
 import (
 	"net/http"
+	"io/ioutil"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/chbm/toca/internal/storage/commands"
+	"github.com/chbm/toca/internal/storage"
 )
 
-func statusRouter() http.hander {
+func statusRouter() http.Handler {
 	r := chi.NewRouter()
 
-	r.Get("/ping", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"message": "pong",
-		})
+	r.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
 	})
 
 	return r
 }
 
 
-func Start(clerk chan) {
+func Start(clerk chan storage.Command) {
 	router := chi.NewRouter()
 	router.Use(middleware.Logger)
 
@@ -30,27 +29,36 @@ func Start(clerk chan) {
 
 	router.Get("/default/{key}", func(w http.ResponseWriter, r *http.Request) {
 		key := chi.URLParam(r, "key")
-		rc := make(chan commands.Value)
-		c <- commands.Command{
-			op: commands.Get,
-			key: key, 
-			value: nil,
-			r: rc
+		rc := make(chan storage.Value)
+		clerk <- storage.Command{
+			Op: storage.Get,
+			Key: key, 
+			Value: "",
+			R: rc,
 		}
-			res := <-r
-			w.Write([]byte(res))
+		res := <-rc
+		if res.Exists {
+			w.Write([]byte(res.V)) 
+		} else {
+			w.WriteHeader(404)
+		}
 	})
 
 	router.Put("/default/{key}", func(w http.ResponseWriter, r *http.Request) {
 		key := chi.URLParam(r, "key")
-		rc := make(chan commands.Value)
-		c <- commands.Command{
-			op: commands.Put,
-			key: key,
-			value. r.Body,
-			r: rc
+		bodyB, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
 		}
-		res := <- r
+		rc := make(chan storage.Value)
+		clerk <-storage.Command{
+			Op: storage.Put,
+			Key: key,
+			Value: string(bodyB),
+			R: rc,
+		}
+		<-rc
 		w.WriteHeader(201)
 	})
 

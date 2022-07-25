@@ -1,29 +1,38 @@
-package clerk
+package storage
 
-import "commands"
 
-func Start() chan {
+func Start() chan Command {
 	c := make(chan Command)
 
 	bag := make(map[string]string)
 
 	go func() {
 		for {
-		cmd := <-c
+			cmd := <-c
 
-		switch cmd.op {
-			case commands.Get:
-				v, e := bag[cmd.key]
+			switch cmd.Op {
+			case Get:
+				v, e := bag[cmd.Key]
 				if e {
-					cmd.r <- v
+					cmd.R <- Value{
+						V: v,
+						Exists: true,
+					}
 				} else {
-					cmd.r <- nil
+					cmd.R <- Value{
+						V: "",
+						Exists: false,
+					}
 				}
-			case comamnds.Put:
-				bag[cmd.key] = cmd.value
+			case Put:
+				bag[cmd.Key] = cmd.Value
+				cmd.R <- Value{
+					V: "",
+					Exists: true,
+				}
+			}
 		}
-	}
-	}
+	}()
 
 	return c
 }

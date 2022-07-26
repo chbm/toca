@@ -30,6 +30,13 @@ func Start() chan Command {
 					V: "",
 					Exists: true,
 				}
+			case Delete:
+				_, e := bag[cmd.Key]
+				delete(bag, cmd.Key)
+				cmd.R <- Value{
+					V: "",
+					Exists: e,
+				}
 			}
 		}
 	}()

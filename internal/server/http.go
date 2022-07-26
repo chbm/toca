@@ -21,7 +21,7 @@ func statusRouter() http.Handler {
 }
 
 
-func Start(clerk chan storage.Command) {
+func Start(clerk chan storage.Command) *chi.Mux {
 	router := chi.NewRouter()
 	router.Use(middleware.Logger)
 
@@ -62,7 +62,25 @@ func Start(clerk chan storage.Command) {
 		w.WriteHeader(201)
 	})
 
-	http.ListenAndServe(":3000", router)
+	router.Delete("/default/{key}", func(w http.ResponseWriter, r *http.Request) {
+		key := chi.URLParam(r, "key")
+		rc := make(chan storage.Value)
+		clerk <-storage.Command{
+			Op: storage.Delete,
+			Key: key,
+			Value: "",
+			R: rc,
+		}
+		ret := <-rc
+		if ret.Exists {
+			w.WriteHeader(204)
+		} else {
+			w.WriteHeader(404)
+		}
+		
+	})
+
+	return router 
 }
 
 

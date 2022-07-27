@@ -27,11 +27,15 @@ func Start(clerk chan storage.Command) *chi.Mux {
 
 	router.Mount("/_status", statusRouter())		
 
-	router.Get("/default/{key}", func(w http.ResponseWriter, r *http.Request) {
+	// XXX so much boilerplate ...
+	router.Get("/{ns}/{key}", func(w http.ResponseWriter, r *http.Request) {
+		ns := chi.URLParam(r, "ns")
 		key := chi.URLParam(r, "key")
+
 		rc := make(chan storage.Value)
 		clerk <- storage.Command{
 			Op: storage.Get,
+			Ns: ns,
 			Key: key, 
 			Value: "",
 			R: rc,
@@ -44,7 +48,8 @@ func Start(clerk chan storage.Command) *chi.Mux {
 		}
 	})
 
-	router.Put("/default/{key}", func(w http.ResponseWriter, r *http.Request) {
+	router.Put("/{ns}/{key}", func(w http.ResponseWriter, r *http.Request) {
+		ns := chi.URLParam(r, "ns")
 		key := chi.URLParam(r, "key")
 		bodyB, err := ioutil.ReadAll(r.Body)
 		if err != nil {
@@ -54,6 +59,7 @@ func Start(clerk chan storage.Command) *chi.Mux {
 		rc := make(chan storage.Value)
 		clerk <-storage.Command{
 			Op: storage.Put,
+			Ns: ns,
 			Key: key,
 			Value: string(bodyB),
 			R: rc,
@@ -62,11 +68,13 @@ func Start(clerk chan storage.Command) *chi.Mux {
 		w.WriteHeader(201)
 	})
 
-	router.Delete("/default/{key}", func(w http.ResponseWriter, r *http.Request) {
+	router.Delete("/{ns}/{key}", func(w http.ResponseWriter, r *http.Request) {
+		ns := chi.URLParam(r, "ns")
 		key := chi.URLParam(r, "key")
 		rc := make(chan storage.Value)
 		clerk <-storage.Command{
 			Op: storage.Delete,
+			Ns: ns,
 			Key: key,
 			Value: "",
 			R: rc,

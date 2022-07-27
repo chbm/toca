@@ -10,6 +10,14 @@ func Start() chan Command {
 		for {
 			cmd := <-c
 
+			if cmd.Ns != "default" {
+				// XXX don't suport others yet
+				cmd.R <- Value{
+					V: "",
+					Exists: false,
+				}
+			}
+
 			switch cmd.Op {
 			case Get:
 				v, e := bag[cmd.Key]

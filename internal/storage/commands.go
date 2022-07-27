@@ -15,6 +15,7 @@ const (
 
 type Command struct {
 	Op Ops
+	Ns string
 	Key string
 	Value string
 	R chan Value

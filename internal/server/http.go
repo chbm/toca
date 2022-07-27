@@ -27,6 +27,25 @@ func Start(clerk chan storage.Command) *chi.Mux {
 
 	router.Mount("/_status", statusRouter())		
 
+	router.Post("/{ns}", func(w http.ResponseWriter, r *http.Request) {
+		ns := chi.URLParam(r, "ns")
+		
+		rc := make(chan storage.Value)
+		clerk <- storage.Command{
+			Op: storage.CreateNs,
+			Ns: ns,
+			Key: "", 
+			Value: "",
+			R: rc,
+		}
+		res := <-rc
+		if res.Exists {
+			w.WriteHeader(http.StatusConflict)
+		} else {
+			w.WriteHeader(201)
+		}
+	})
+
 	// XXX so much boilerplate ...
 	router.Get("/{ns}/{key}", func(w http.ResponseWriter, r *http.Request) {
 		ns := chi.URLParam(r, "ns")
@@ -64,8 +83,12 @@ func Start(clerk chan storage.Command) *chi.Mux {
 			Value: string(bodyB),
 			R: rc,
 		}
-		<-rc
-		w.WriteHeader(201)
+		res := <-rc
+		if res.Exists {
+			w.WriteHeader(204)
+		} else {
+			w.WriteHeader(404)
+		}
 	})
 
 	router.Delete("/{ns}/{key}", func(w http.ResponseWriter, r *http.Request) {

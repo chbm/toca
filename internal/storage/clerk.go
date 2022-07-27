@@ -1,21 +1,23 @@
 package storage
 
-
 func Start() chan Command {
 	c := make(chan Command)
 
-	bag := make(map[string]string)
+	bags := map[string]map[string]string{
+		"default": map[string]string{},
+	}
 
 	go func() {
 		for {
 			cmd := <-c
 
-			if cmd.Ns != "default" {
-				// XXX don't suport others yet
+			bag, bagexists := bags[cmd.Ns]
+			if cmd.Op != CreateNs && !bagexists {
 				cmd.R <- Value{
 					V: "",
 					Exists: false,
 				}
+				continue
 			}
 
 			switch cmd.Op {
@@ -44,6 +46,19 @@ func Start() chan Command {
 				cmd.R <- Value{
 					V: "",
 					Exists: e,
+				}
+			case CreateNs:
+				if bagexists {
+					cmd.R <- Value{
+						V: "",
+						Exists: true,
+					}
+				} else {
+					bags[cmd.Ns] = make(map[string]string)
+					cmd.R <- Value{
+						V: "",
+						Exists: false,
+					}
 				}
 			}
 		}

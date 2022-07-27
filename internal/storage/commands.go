@@ -11,6 +11,7 @@ const (
 	Get Ops = iota
 	Put Ops = iota
 	Delete Ops = iota
+	CreateNs Ops = iota
 )
 
 type Command struct {

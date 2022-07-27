@@ -42,3 +42,15 @@ func TestBasic(t *testing.T) {
 	testRequest(t, server, "GET", aKey, "", 404)
 }
 
+
+func TestNs(t *testing.T) {
+	server := httpServer()
+
+	testRequest(t, server, "PUT", "/null/foo", "ola", 404)
+	testRequest(t, server, "POST", "/null", "", 201)
+	testRequest(t, server, "POST", "/null", "", 409)
+	testRequest(t, server, "PUT", "/null/foo", "ola", 200)
+	assert.Equal(t, testRequest(t, server, "GET", "/null/foo", "", 200), "ola")
+	
+
+}

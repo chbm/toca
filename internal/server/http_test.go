@@ -4,7 +4,6 @@ import (
 	"net/http/httptest"
 	"testing"
 	"strings"
-	"bytes"
 	"io"
 	"gotest.tools/v3/assert"
 
@@ -18,34 +17,28 @@ func httpServer() *chi.Mux {
 	return Start(clerkCh)
 }
 
+func testRequest(t *testing.T, server *chi.Mux, how string, where string, what string, expect int) string {
+	testReq := httptest.NewRequest(how, where, strings.NewReader(what))
+	recorder := httptest.NewRecorder()
+	server.ServeHTTP(recorder, testReq)
+	res := recorder.Result()
+	assert.Equal(t, res.StatusCode, expect)
+	b, e := io.ReadAll(res.Body)
+	if e != nil {
+		return "" 
+	}
+	return string(b)
+}
 
 func TestBasic(t *testing.T) {
 	server := httpServer()
-	recorder := httptest.NewRecorder()
+	
+	aKey := "/default/foo"
+	aValue := "ipsum bacon"
 
-	putReq := httptest.NewRequest("PUT", "/default/foo", strings.NewReader("abcdefg"))
-	server.ServeHTTP(recorder, putReq)
-	res := recorder.Result()
-	assert.Equal(t, res.StatusCode, 201) 
-
-	readReq := httptest.NewRequest("GET", "/default/foo", bytes.NewReader([]byte{}))
-	recorder = httptest.NewRecorder()
-	server.ServeHTTP(recorder, readReq)
-	res = recorder.Result()
-	assert.Equal(t, res.StatusCode, 200)
-	b, _ := io.ReadAll(res.Body)
-	assert.Equal(t, string(b), "abcdefg")
-
-	delReq := httptest.NewRequest("DELETE", "/default/foo", bytes.NewReader([]byte{}))
-	recorder = httptest.NewRecorder()
-	server.ServeHTTP(recorder, delReq)
-	res = recorder.Result()
-	assert.Equal(t, res.StatusCode, 204) 
-
-	rereadReq := httptest.NewRequest("GET", "/default/foo", bytes.NewReader([]byte{}))
-	recorder = httptest.NewRecorder()
-	server.ServeHTTP(recorder, rereadReq)
-	res = recorder.Result()
-	assert.Equal(t, res.StatusCode, 404)
+	testRequest(t, server, "PUT", aKey, aValue, 201)
+	assert.Equal(t, testRequest(t, server, "GET", aKey, "", 200), aValue)
+	testRequest(t, server, "DELETE", aKey, "", 204)
+	testRequest(t, server, "GET", aKey, "", 404)
 }
 

@@ -27,6 +27,42 @@ func Start(clerk chan storage.Command) *chi.Mux {
 
 	router.Mount("/_status", statusRouter())		
 
+	router.Post("/{ns}/_load", func(w http.ResponseWriter, r *http.Request) {
+		ns := chi.URLParam(r, "ns")
+		
+		rc := make(chan storage.Result)
+		clerk <- storage.Command{
+			Op: storage.LoadNs,
+			Ns: ns,
+			Key: "", 
+			Value: "",
+			R: rc,
+		}
+		res := <-rc
+		if res.Err != storage.Success {
+			w.WriteHeader(500)
+		} else {
+			w.WriteHeader(200)
+		}
+	})
+	router.Post("/{ns}/_save", func(w http.ResponseWriter, r *http.Request) {
+		ns := chi.URLParam(r, "ns")
+		
+		rc := make(chan storage.Result)
+		clerk <- storage.Command{
+			Op: storage.SaveNs,
+			Ns: ns,
+			Key: "", 
+			Value: "",
+			R: rc,
+		}
+		res := <-rc
+		if res.Err != storage.Success {
+			w.WriteHeader(500)
+		} else {
+			w.WriteHeader(200)
+		}
+	})
 	router.Post("/{ns}", func(w http.ResponseWriter, r *http.Request) {
 		ns := chi.URLParam(r, "ns")
 		

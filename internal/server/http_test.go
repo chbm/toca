@@ -55,5 +55,16 @@ func TestNs(t *testing.T) {
 	testRequest(t, server, "PUT", "/null/foo", "ola", 201)
 	assert.Equal(t, testRequest(t, server, "GET", "/null/foo", "", 200), "ola")
 	
+}
 
+func TestLoadSave(t *testing.T) {
+	server := httpServer()
+
+	testRequest(t, server, "POST", "/null", "", 201)
+	testRequest(t, server, "PUT", "/null/foo", "ola", 201)
+	testRequest(t, server, "POST", "/null/_save", "", 200)
+
+	otherserver := httpServer()
+	testRequest(t, otherserver, "POST", "/null/_load", "", 200)
+	assert.Equal(t, testRequest(t, otherserver, "GET", "/null/foo", "", 200), "ola")
 }

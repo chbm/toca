@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/gob"
 	"os"
+	"io"
 )
 
 const basePath = "/tmp/" // XXX PLACEHOLDER
@@ -16,28 +17,29 @@ func dumpToDisk(bag Bag, name string) error {
 		return err
 	}
 	temp := file.Name()
-
-	enc := gob.NewEncoder(bufio.NewWriter(file))
+	
+	b := bufio.NewWriter(file)
+	enc := gob.NewEncoder(b)
 	if err = enc.Encode(bag); err != nil {
 		return err
 	}
-
+	b.Flush()	
 	file.Close()
 	return os.Rename(temp, basePath+name+".toca")
 }
 
 func loadFromDisk(name string) (Bag, error) {
-	var bag Bag
+	bag := Bag{}
 	file, err := os.Open(basePath+name+".toca")
 	if err != nil {
 		return bag, err
 	}
 	dec := gob.NewDecoder(bufio.NewReader(file))
 	err = dec.Decode(&bag)
-	if err != nil {
-		return bag, err 
+	if err != nil && err == io.EOF {
+		err = nil
 	}
-	return bag, nil
+	return bag, err
 }
 
 func Start() chan Command {
@@ -52,7 +54,7 @@ func Start() chan Command {
 			cmd := <-c
 
 			bag, bagexists := bags[cmd.Ns]
-			if cmd.Op != CreateNs && !bagexists {
+			if cmd.Op != CreateNs && cmd.Op != LoadNs  && !bagexists {
 				cmd.R <- Result{
 					Val: Value{
 						V: "",
@@ -122,6 +124,29 @@ func Start() chan Command {
 						Err: Success,
 					}
 				}
+			case LoadNs:
+				newbag, err := loadFromDisk(cmd.Ns)
+				if err != nil {
+					cmd.R <- Result{
+						Val: Value{},
+						Err: Failure,
+					}
+				} else {
+					bags[cmd.Ns] = newbag
+					cmd.R <- Result{
+							Val: Value{},
+							Err: Success,
+						}
+				}
+			case SaveNs:
+				r := Result{
+					Val: Value{},
+					Err: Success,
+				}
+				if dumpToDisk(bag, cmd.Ns) != nil {
+					r.Err = Failure
+				}
+				cmd.R <- r
 			}
 		}
 	}()

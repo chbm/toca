@@ -30,7 +30,7 @@ func Start(clerk chan storage.Command) *chi.Mux {
 	router.Post("/{ns}", func(w http.ResponseWriter, r *http.Request) {
 		ns := chi.URLParam(r, "ns")
 		
-		rc := make(chan storage.Value)
+		rc := make(chan storage.Result)
 		clerk <- storage.Command{
 			Op: storage.CreateNs,
 			Ns: ns,
@@ -39,8 +39,10 @@ func Start(clerk chan storage.Command) *chi.Mux {
 			R: rc,
 		}
 		res := <-rc
-		if res.Exists {
+		if res.Err == storage.Conflict {
 			w.WriteHeader(http.StatusConflict)
+		} else if res.Err != storage.Success {
+			w.WriteHeader(500)
 		} else {
 			w.WriteHeader(201)
 		}
@@ -51,7 +53,7 @@ func Start(clerk chan storage.Command) *chi.Mux {
 		ns := chi.URLParam(r, "ns")
 		key := chi.URLParam(r, "key")
 
-		rc := make(chan storage.Value)
+		rc := make(chan storage.Result)
 		clerk <- storage.Command{
 			Op: storage.Get,
 			Ns: ns,
@@ -60,8 +62,10 @@ func Start(clerk chan storage.Command) *chi.Mux {
 			R: rc,
 		}
 		res := <-rc
-		if res.Exists {
-			w.Write([]byte(res.V)) 
+		if res.Err != storage.Success {
+			w.WriteHeader(500)
+		} else if res.Val.Exists {
+			w.Write([]byte(res.Val.V)) 
 		} else {
 			w.WriteHeader(404)
 		}
@@ -75,7 +79,7 @@ func Start(clerk chan storage.Command) *chi.Mux {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		rc := make(chan storage.Value)
+		rc := make(chan storage.Result)
 		clerk <-storage.Command{
 			Op: storage.Put,
 			Ns: ns,
@@ -84,17 +88,21 @@ func Start(clerk chan storage.Command) *chi.Mux {
 			R: rc,
 		}
 		res := <-rc
-		if res.Exists {
-			w.WriteHeader(204)
-		} else {
+		if res.Err == storage.NoNS {
 			w.WriteHeader(404)
+		} else if res.Err != storage.Success {
+			w.WriteHeader(500)
+		} else if res.Val.Exists {
+			w.Write([]byte(res.Val.V)) 
+		} else {
+			w.WriteHeader(201)
 		}
 	})
 
 	router.Delete("/{ns}/{key}", func(w http.ResponseWriter, r *http.Request) {
 		ns := chi.URLParam(r, "ns")
 		key := chi.URLParam(r, "key")
-		rc := make(chan storage.Value)
+		rc := make(chan storage.Result)
 		clerk <-storage.Command{
 			Op: storage.Delete,
 			Ns: ns,
@@ -102,8 +110,10 @@ func Start(clerk chan storage.Command) *chi.Mux {
 			Value: "",
 			R: rc,
 		}
-		ret := <-rc
-		if ret.Exists {
+		res := <-rc
+		if res.Err != storage.Success {
+			w.WriteHeader(500)
+		} else if res.Val.Exists {
 			w.WriteHeader(204)
 		} else {
 			w.WriteHeader(404)

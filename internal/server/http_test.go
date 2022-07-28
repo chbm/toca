@@ -36,10 +36,13 @@ func TestBasic(t *testing.T) {
 	aKey := "/default/foo"
 	aValue := "ipsum bacon"
 
-	testRequest(t, server, "PUT", aKey, aValue, 204)
+	testRequest(t, server, "PUT", aKey, aValue, 201)
 	assert.Equal(t, testRequest(t, server, "GET", aKey, "", 200), aValue)
 	testRequest(t, server, "DELETE", aKey, "", 204)
 	testRequest(t, server, "GET", aKey, "", 404)
+	
+	testRequest(t, server, "PUT", aKey, aValue, 201)
+	assert.Equal(t, testRequest(t, server, "PUT", aKey, "", 200), aValue)
 }
 
 
@@ -49,7 +52,7 @@ func TestNs(t *testing.T) {
 	testRequest(t, server, "PUT", "/null/foo", "ola", 404)
 	testRequest(t, server, "POST", "/null", "", 201)
 	testRequest(t, server, "POST", "/null", "", 409)
-	testRequest(t, server, "PUT", "/null/foo", "ola", 204)
+	testRequest(t, server, "PUT", "/null/foo", "ola", 201)
 	assert.Equal(t, testRequest(t, server, "GET", "/null/foo", "", 200), "ola")
 	
 

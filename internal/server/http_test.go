@@ -1,14 +1,16 @@
 package httpserver
 
 import (
-	"net/http/httptest"
-	"testing"
-	"strings"
 	"io"
+	"net/http/httptest"
+	"net/url"
+	"strings"
+	"testing"
+
 	"gotest.tools/v3/assert"
 
 	"github.com/go-chi/chi/v5"
-	
+
 	"github.com/chbm/toca/internal/storage"
 )
 
@@ -67,4 +69,20 @@ func TestLoadSave(t *testing.T) {
 	otherserver := httpServer()
 	testRequest(t, otherserver, "POST", "/null/_load", "", 200)
 	assert.Equal(t, testRequest(t, otherserver, "GET", "/null/foo", "", 200), "ola")
+}
+
+func FuzzStore(f *testing.F) {
+	server := httpServer()
+
+	f.Fuzz(func(t *testing.T, key string, value string) {
+		path := "/default/" + url.QueryEscape(key)	
+		testReq := httptest.NewRequest("PUT", path, strings.NewReader(value))
+		recorder := httptest.NewRecorder()
+		server.ServeHTTP(recorder, testReq)
+		res := recorder.Result()
+		if res.StatusCode > 299 {
+			t.Fatalf("PUT %v : %v", key, value)
+		}
+		assert.Equal(t, testRequest(t, server, "GET", path, "", 200), value)
+	})
 }

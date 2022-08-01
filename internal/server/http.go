@@ -40,7 +40,7 @@ func Start(clerk chan storage.Command) *chi.Mux {
 		}
 		res := <-rc
 		if res.Err != storage.Success {
-			w.WriteHeader(500)
+			w.WriteHeader(404)
 		} else {
 			w.WriteHeader(200)
 		}

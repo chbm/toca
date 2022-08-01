@@ -62,6 +62,8 @@ func TestNs(t *testing.T) {
 func TestLoadSave(t *testing.T) {
 	server := httpServer()
 
+	testRequest(t, server, "POST", "/asdfasdfasdf/_load", "", 404)
+
 	testRequest(t, server, "POST", "/null", "", 201)
 	testRequest(t, server, "PUT", "/null/foo", "ola", 201)
 	testRequest(t, server, "POST", "/null/_save", "", 200)
@@ -69,6 +71,8 @@ func TestLoadSave(t *testing.T) {
 	otherserver := httpServer()
 	testRequest(t, otherserver, "POST", "/null/_load", "", 200)
 	assert.Equal(t, testRequest(t, otherserver, "GET", "/null/foo", "", 200), "ola")
+
+
 }
 
 func FuzzStore(f *testing.F) {

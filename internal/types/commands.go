@@ -1,4 +1,4 @@
-package storage 
+package types 
 
 type Ops int8
 type Errs int8
@@ -15,6 +15,7 @@ const (
 	CreateNs Ops = iota
 	SaveNs Ops = iota
 	LoadNs Ops = iota
+	GetURL Ops = iota
 )
 
 const (

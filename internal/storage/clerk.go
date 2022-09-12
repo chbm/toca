@@ -3,11 +3,23 @@ package storage
 import (
 	"bufio"
 	"encoding/gob"
-	"os"
+	"fmt"
 	"io"
+	"net/http"
+	"os"
+	"log"
+
+	"github.com/chbm/toca/internal/server"
+	. "github.com/chbm/toca/internal/types"
 )
 
 const basePath = "/tmp/" // XXX PLACEHOLDER
+const peerHost = "localhost"
+
+type Namespaces struct {
+	c chan Command
+        url string
+}
 
 type bagInit int8
 const (
@@ -49,10 +61,24 @@ func loadFromDisk(name string) (Bag, error) {
 	return bag, err
 }
 
+
+var portCounter int 
+func nextPeerAddress() string {
+	portCounter += 1
+	return fmt.Sprintf("%s:%d", peerHost, portCounter)
+}
+
+func runPeers(h chan Command, address string)  {
+	peers := httpserver.Start(h)
+	http.ListenAndServe(address , peers)	
+}
+
+
 func Start() chan Command {
+	portCounter = 60000
 	c := make(chan Command)
 
-	bags := map[string]chan Command{
+	bags := map[string]Namespaces{
 		"default": bagHolder("default", TRYLOAD),
 	}
 
@@ -83,7 +109,7 @@ func Start() chan Command {
 				}
 			case LoadNs:
 				newbag := bagHolder(cmd.Ns, MUSTLOAD)
-				if newbag == nil {
+				if newbag.c == nil {
 					cmd.R <- Result{
 						Val: Value{},
 						Err: Failure,
@@ -92,6 +118,18 @@ func Start() chan Command {
 					bags[cmd.Ns] = newbag
 					cmd.R <- Result{
 						Val: Value{},
+						Err: Success,
+					}
+				}
+			case GetURL:
+				if !bagexists {
+				cmd.R <- Result{
+					Val: Value{V: "", Exists: false	},
+					Err: NoNS,
+				}
+				} else {
+					cmd.R <- Result{
+						Val: Value{V: bag.url, Exists: true},
 						Err: Success,
 					}
 				}
@@ -105,7 +143,7 @@ func Start() chan Command {
 						Err: NoNS,
 					}
 				} else {
-					bag <- cmd	
+					bag.c <- cmd	
 				}
 			}
 		}
@@ -114,9 +152,10 @@ func Start() chan Command {
 }
 
 
-func bagHolder(name string, policy bagInit) chan Command {
+func bagHolder(name string, policy bagInit) Namespaces {
 	var c chan Command
 	var bag Bag
+	
 
 	if policy == NOLOAD {
 		bag = map[string]string{}
@@ -126,16 +165,38 @@ func bagHolder(name string, policy bagInit) chan Command {
 			if policy == TRYLOAD {
 				b = map[string]string{}
 			} else {
-				return c
+				return Namespaces{
+					c: c,
+					url: "",
+				}
 			}
 		}
 		bag = b
 	}
+	
+	h := make(chan Command)
+	url := nextPeerAddress()
+	go runPeers(h, url)	
+	logger := log.Default()
+	logger.Printf("%s -- http listening on %s", name, url)
 
 	c = make(chan Command)
 	go func() {
 		for {
-			cmd := <-c
+			var cmd Command
+			select {
+			case msg := <-h:
+				if msg.Ns != name {
+					msg.R <- Result{
+						Val: Value{V: "", Exists: false},
+						Err: Success,
+					}
+					continue
+				}
+				cmd = msg
+			case msg := <- c:
+				cmd = msg
+			}
 			switch cmd.Op {
 			case Get:
 				v, e := bag[cmd.Key]
@@ -189,5 +250,8 @@ func bagHolder(name string, policy bagInit) chan Command {
 			}
 		}
 	}()
-	return c
+	return Namespaces{
+		c: c, 
+		url: url,
+	}
 }

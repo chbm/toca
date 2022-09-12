@@ -7,7 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/chbm/toca/internal/storage"
+	. "github.com/chbm/toca/internal/types"
 )
 
 func statusRouter() http.Handler {
@@ -21,25 +21,45 @@ func statusRouter() http.Handler {
 }
 
 
-func Start(clerk chan storage.Command) *chi.Mux {
+func Start(clerk chan Command) *chi.Mux {
 	router := chi.NewRouter()
 	router.Use(middleware.Logger)
 
 	router.Mount("/_status", statusRouter())		
 
-	router.Post("/{ns}/_load", func(w http.ResponseWriter, r *http.Request) {
+	router.Get("/{ns}/_cluster", func(w http.ResponseWriter, r *http.Request) {
 		ns := chi.URLParam(r, "ns")
 		
-		rc := make(chan storage.Result)
-		clerk <- storage.Command{
-			Op: storage.LoadNs,
+		rc := make(chan Result)
+		clerk <- Command{
+			Op: GetURL,
 			Ns: ns,
 			Key: "", 
 			Value: "",
 			R: rc,
 		}
 		res := <-rc
-		if res.Err != storage.Success {
+		if res.Err != Success {
+			w.WriteHeader(404)
+		} else {
+			w.Header().Add("Location", res.Val.V)
+			w.WriteHeader(http.StatusTemporaryRedirect)
+		}
+	})
+
+	router.Post("/{ns}/_load", func(w http.ResponseWriter, r *http.Request) {
+		ns := chi.URLParam(r, "ns")
+		
+		rc := make(chan Result)
+		clerk <- Command{
+			Op: LoadNs,
+			Ns: ns,
+			Key: "", 
+			Value: "",
+			R: rc,
+		}
+		res := <-rc
+		if res.Err != Success {
 			w.WriteHeader(404)
 		} else {
 			w.WriteHeader(200)
@@ -48,16 +68,16 @@ func Start(clerk chan storage.Command) *chi.Mux {
 	router.Post("/{ns}/_save", func(w http.ResponseWriter, r *http.Request) {
 		ns := chi.URLParam(r, "ns")
 		
-		rc := make(chan storage.Result)
-		clerk <- storage.Command{
-			Op: storage.SaveNs,
+		rc := make(chan Result)
+		clerk <- Command{
+			Op: SaveNs,
 			Ns: ns,
 			Key: "", 
 			Value: "",
 			R: rc,
 		}
 		res := <-rc
-		if res.Err != storage.Success {
+		if res.Err != Success {
 			w.WriteHeader(500)
 		} else {
 			w.WriteHeader(200)
@@ -66,18 +86,18 @@ func Start(clerk chan storage.Command) *chi.Mux {
 	router.Post("/{ns}", func(w http.ResponseWriter, r *http.Request) {
 		ns := chi.URLParam(r, "ns")
 		
-		rc := make(chan storage.Result)
-		clerk <- storage.Command{
-			Op: storage.CreateNs,
+		rc := make(chan Result)
+		clerk <- Command{
+			Op: CreateNs,
 			Ns: ns,
 			Key: "", 
 			Value: "",
 			R: rc,
 		}
 		res := <-rc
-		if res.Err == storage.Conflict {
+		if res.Err == Conflict {
 			w.WriteHeader(http.StatusConflict)
-		} else if res.Err != storage.Success {
+		} else if res.Err != Success {
 			w.WriteHeader(500)
 		} else {
 			w.WriteHeader(201)
@@ -89,16 +109,16 @@ func Start(clerk chan storage.Command) *chi.Mux {
 		ns := chi.URLParam(r, "ns")
 		key := chi.URLParam(r, "key")
 
-		rc := make(chan storage.Result)
-		clerk <- storage.Command{
-			Op: storage.Get,
+		rc := make(chan Result)
+		clerk <- Command{
+			Op: Get,
 			Ns: ns,
 			Key: key, 
 			Value: "",
 			R: rc,
 		}
 		res := <-rc
-		if res.Err != storage.Success {
+		if res.Err != Success {
 			w.WriteHeader(500)
 		} else if res.Val.Exists {
 			w.Write([]byte(res.Val.V)) 
@@ -115,18 +135,18 @@ func Start(clerk chan storage.Command) *chi.Mux {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		rc := make(chan storage.Result)
-		clerk <-storage.Command{
-			Op: storage.Put,
+		rc := make(chan Result)
+		clerk <-Command{
+			Op: Put,
 			Ns: ns,
 			Key: key,
 			Value: string(bodyB),
 			R: rc,
 		}
 		res := <-rc
-		if res.Err == storage.NoNS {
+		if res.Err == NoNS {
 			w.WriteHeader(404)
-		} else if res.Err != storage.Success {
+		} else if res.Err != Success {
 			w.WriteHeader(500)
 		} else if res.Val.Exists {
 			w.Write([]byte(res.Val.V)) 
@@ -138,16 +158,16 @@ func Start(clerk chan storage.Command) *chi.Mux {
 	router.Delete("/{ns}/{key}", func(w http.ResponseWriter, r *http.Request) {
 		ns := chi.URLParam(r, "ns")
 		key := chi.URLParam(r, "key")
-		rc := make(chan storage.Result)
-		clerk <-storage.Command{
-			Op: storage.Delete,
+		rc := make(chan Result)
+		clerk <-Command{
+			Op: Delete,
 			Ns: ns,
 			Key: key,
 			Value: "",
 			R: rc,
 		}
 		res := <-rc
-		if res.Err != storage.Success {
+		if res.Err != Success {
 			w.WriteHeader(500)
 		} else if res.Val.Exists {
 			w.WriteHeader(204)
